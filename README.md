@@ -76,12 +76,15 @@ node ./src/index.js \
   --format markdown
 ```
 
-Currently the repo-path ingest checks common files like:
+Currently the repo-path ingest checks common files and structure hints like:
 - `README.md`
 - `package.json`
 - `pyproject.toml`
 - `Makefile`
 - top-level file names
+- a shallow directory tree
+- common file extension counts
+- simple test/config hints
 
 You can also request JSON output with `--format json`.
 
@@ -89,5 +92,5 @@ You can also request JSON output with `--format json`.
 
 1. tighten the phase heuristics by objective type
 2. create more example transformations
-3. expand repo ingestion to more file types and deeper structure summaries
+3. expand repo ingestion to more file types and smarter code/test signal extraction
 4. decide whether to keep prompt-first or add typed planning logic

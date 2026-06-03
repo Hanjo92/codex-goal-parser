@@ -93,6 +93,95 @@ function summarizePackageJson(pkgRaw) {
   }
 }
 
+function buildShallowTree(rootPath, maxDepth = 2, maxEntries = 24) {
+  const lines = [];
+  let count = 0;
+  const ignore = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', 'coverage']);
+
+  function walk(currentPath, depth, prefix = '') {
+    if (depth > maxDepth || count >= maxEntries) return;
+
+    let entries = [];
+    try {
+      entries = fs.readdirSync(currentPath, { withFileTypes: true })
+        .filter((entry) => !entry.name.startsWith('.') && !ignore.has(entry.name))
+        .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name));
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (count >= maxEntries) break;
+      const marker = entry.isDirectory() ? '/' : '';
+      lines.push(`${prefix}${entry.name}${marker}`);
+      count += 1;
+      if (entry.isDirectory()) {
+        walk(path.join(currentPath, entry.name), depth + 1, `${prefix}${entry.name}/`);
+      }
+    }
+  }
+
+  walk(rootPath, 1);
+  return lines;
+}
+
+function summarizeFileExtensions(rootPath, maxFiles = 120) {
+  const counts = new Map();
+  const ignore = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', 'coverage']);
+  let seen = 0;
+
+  function walk(currentPath, depth = 0) {
+    if (depth > 3 || seen >= maxFiles) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(currentPath, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (seen >= maxFiles) break;
+      if (entry.name.startsWith('.') || ignore.has(entry.name)) continue;
+      const fullPath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, depth + 1);
+      } else {
+        const ext = path.extname(entry.name) || '[no-ext]';
+        counts.set(ext, (counts.get(ext) ?? 0) + 1);
+        seen += 1;
+      }
+    }
+  }
+
+  walk(rootPath);
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([ext, count]) => `${ext}:${count}`)
+    .join(', ');
+}
+
+function detectTestHints(rootPath) {
+  const hints = [];
+  const candidates = [
+    'test',
+    'tests',
+    '__tests__',
+    'vitest.config.ts',
+    'jest.config.js',
+    'pytest.ini',
+    'playwright.config.ts',
+    'cypress.config.ts',
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(rootPath, candidate))) hints.push(candidate);
+  }
+
+  return hints.join(', ');
+}
+
 function buildRepoContextFromPath(repoPath) {
   if (!repoPath) return '';
 
@@ -129,6 +218,15 @@ function buildRepoContextFromPath(repoPath) {
 
   const files = fs.readdirSync(resolved).filter((entry) => !entry.startsWith('.')).slice(0, 20);
   if (files.length) summaries.push(`top-level files: ${files.join(', ')}`);
+
+  const tree = buildShallowTree(resolved);
+  if (tree.length) summaries.push(`shallow tree: ${tree.join(', ')}`);
+
+  const extensions = summarizeFileExtensions(resolved);
+  if (extensions) summaries.push(`file types: ${extensions}`);
+
+  const testHints = detectTestHints(resolved);
+  if (testHints) summaries.push(`test hints: ${testHints}`);
 
   return summaries.join('. ');
 }
