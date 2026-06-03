@@ -32,13 +32,24 @@ The current version focuses on planning, not execution.
 - a structured goal plan
 - compact `/goal` commands that Codex can execute one by one
 
-## Quick start
+## Install
+
+From npm after publish:
+
+```bash
+npm install -g codex-goal-parser
+```
+
+From source while developing:
 
 ```bash
 git clone https://github.com/Hanjo92/codex-goal-parser.git
 cd codex-goal-parser
 npm install
+npm link
 ```
+
+## Quick start
 
 Run the basic example:
 
@@ -81,10 +92,9 @@ node ./src/index.js \
   --format json
 ```
 
-If you want a local command on your machine while developing:
+After `npm link`, you can use it like a normal command:
 
 ```bash
-npm link
 codex-goal-parser --objective "Refactor this service safely." --repo-path . --format markdown
 ```
 

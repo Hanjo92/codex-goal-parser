@@ -1,15 +1,44 @@
 {
   "name": "codex-goal-parser",
   "version": "0.1.0",
-  "description": "Generate Codex-friendly /goal plans from large software objectives.",
+  "description": "Turn large software objectives into repo-aware Codex /goal plans with verifiable sub-goals.",
   "type": "module",
   "bin": {
     "codex-goal-parser": "./src/index.js"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "codex",
+    "goal-mode",
+    "cli",
+    "planning",
+    "automation",
+    "developer-tools"
+  ],
+  "author": "Seunghu Song",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hanjo92/codex-goal-parser.git"
+  },
+  "homepage": "https://github.com/Hanjo92/codex-goal-parser#readme",
+  "bugs": {
+    "url": "https://github.com/Hanjo92/codex-goal-parser/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "start": "node ./src/index.js",
     "example": "node ./src/index.js --objective \"Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy.\" --repo-context \"Node service with package.json, README, and deployment scripts.\" --format markdown",
-    "example:release": "node ./src/index.js --objective \"Prepare this project for a safe public release.\" --repo-path . --constraints \"Do not change runtime behavior unless needed.\" --format markdown"
-  },
-  "license": "MIT"
+    "example:release": "node ./src/index.js --objective \"Prepare this project for a safe public release.\" --repo-path . --constraints \"Do not change runtime behavior unless needed.\" --format markdown",
+    "smoke": "node ./src/index.js --objective \"Refactor this service safely.\" --repo-path . --format json"
+  }
 }
