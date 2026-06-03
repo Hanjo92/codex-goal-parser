@@ -35,7 +35,26 @@ The current version focuses on planning, not execution.
 ## Quick start
 
 ```bash
+git clone https://github.com/Hanjo92/codex-goal-parser.git
+cd codex-goal-parser
 npm install
+```
+
+Run the basic example:
+
+```bash
+npm run example
+```
+
+Run the repo-aware release example:
+
+```bash
+npm run example:release
+```
+
+Run the CLI directly with your own objective:
+
+```bash
 node ./src/index.js \
   --objective "Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy." \
   --repo-context "Node service with package.json, README, and deployment scripts." \
@@ -61,6 +80,30 @@ node ./src/index.js \
   --repo-path . \
   --format json
 ```
+
+If you want a local command on your machine while developing:
+
+```bash
+npm link
+codex-goal-parser --objective "Refactor this service safely." --repo-path . --format markdown
+```
+
+## Example output
+
+A shortened real example for a release-readiness objective:
+
+```md
+## Final objective
+Prepare this project for a safe public release.
+
+## Recommended sub-goals
+1. Audit release readiness
+2. Close release gaps
+3. Verify the release path
+4. Document and finalize release readiness
+```
+
+The full generated output also includes done conditions, validation steps, and ready-to-run `/goal` commands for each step.
 
 ## Repo-aware context ingest
 
