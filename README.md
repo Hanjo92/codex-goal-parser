@@ -66,11 +66,28 @@ node ./src/index.js \
   --format markdown
 ```
 
+Or let it inspect a repo directly:
+
+```bash
+node ./src/index.js \
+  --objective "Prepare this project for a safe public release." \
+  --repo-path . \
+  --constraints "Do not change runtime behavior unless needed." \
+  --format markdown
+```
+
+Currently the repo-path ingest checks common files like:
+- `README.md`
+- `package.json`
+- `pyproject.toml`
+- `Makefile`
+- top-level file names
+
 You can also request JSON output with `--format json`.
 
 ## Next steps
 
 1. tighten the phase heuristics by objective type
-2. add repo file ingestion instead of only summary text
-3. create more example transformations
+2. create more example transformations
+3. expand repo ingestion to more file types and deeper structure summaries
 4. decide whether to keep prompt-first or add typed planning logic

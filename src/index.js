@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import path from 'node:path';
 
 function parseArgs(argv) {
   const args = {
@@ -8,6 +9,7 @@ function parseArgs(argv) {
     objective: '',
     repoContext: '',
     constraints: '',
+    repoPath: '',
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -24,6 +26,10 @@ function parseArgs(argv) {
       case '--constraints':
       case '-c':
         args.constraints = argv[++i] ?? '';
+        break;
+      case '--repo-path':
+      case '-p':
+        args.repoPath = argv[++i] ?? '';
         break;
       case '--format':
       case '-f':
@@ -52,9 +58,79 @@ Options:
   -o, --objective      Large objective to decompose
   -r, --repo-context   Short repo summary or context
   -c, --constraints    Constraints, boundaries, or validation notes
+  -p, --repo-path      Repository path to inspect for common context files
   -f, --format         markdown (default) or json
   -h, --help           Show help
 `);
+}
+
+function readFileIfExists(filePath, maxLength = 1200) {
+  try {
+    if (!fs.existsSync(filePath)) return '';
+    const value = fs.readFileSync(filePath, 'utf8').trim();
+    return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+  } catch {
+    return '';
+  }
+}
+
+function summarizePackageJson(pkgRaw) {
+  if (!pkgRaw) return '';
+
+  try {
+    const pkg = JSON.parse(pkgRaw);
+    const parts = [];
+    if (pkg.name) parts.push(`package ${pkg.name}`);
+    if (pkg.description) parts.push(`description: ${cleanSentence(pkg.description)}`);
+    if (pkg.type) parts.push(`module type: ${pkg.type}`);
+    const scripts = pkg.scripts ? Object.keys(pkg.scripts) : [];
+    if (scripts.length) parts.push(`scripts: ${scripts.slice(0, 6).join(', ')}`);
+    const deps = pkg.dependencies ? Object.keys(pkg.dependencies) : [];
+    if (deps.length) parts.push(`dependencies: ${deps.slice(0, 6).join(', ')}`);
+    return parts.join('; ');
+  } catch {
+    return '';
+  }
+}
+
+function buildRepoContextFromPath(repoPath) {
+  if (!repoPath) return '';
+
+  const resolved = path.resolve(repoPath);
+  if (!fs.existsSync(resolved)) return '';
+
+  const summaries = [];
+  summaries.push(`repo path: ${resolved}`);
+
+  const readme = readFileIfExists(path.join(resolved, 'README.md'));
+  if (readme) {
+    const firstParagraph = readme.split('\n').filter(Boolean).slice(0, 3).join(' ');
+    summaries.push(`README summary: ${cleanSentence(firstParagraph)}`);
+  }
+
+  const pkgSummary = summarizePackageJson(readFileIfExists(path.join(resolved, 'package.json'), 4000));
+  if (pkgSummary) summaries.push(pkgSummary);
+
+  const pyproject = readFileIfExists(path.join(resolved, 'pyproject.toml'));
+  if (pyproject) {
+    const preview = pyproject.split('\n').filter(Boolean).slice(0, 8).join(' ');
+    summaries.push(`pyproject: ${cleanSentence(preview)}`);
+  }
+
+  const makefile = readFileIfExists(path.join(resolved, 'Makefile'));
+  if (makefile) {
+    const targets = makefile
+      .split('\n')
+      .filter((line) => /^[A-Za-z0-9_-]+:/.test(line))
+      .map((line) => line.split(':')[0])
+      .slice(0, 8);
+    if (targets.length) summaries.push(`make targets: ${targets.join(', ')}`);
+  }
+
+  const files = fs.readdirSync(resolved).filter((entry) => !entry.startsWith('.')).slice(0, 20);
+  if (files.length) summaries.push(`top-level files: ${files.join(', ')}`);
+
+  return summaries.join('. ');
 }
 
 function cleanSentence(text) {
@@ -234,7 +310,9 @@ if (!args.objective) {
   process.exit(1);
 }
 
-const plan = buildPlan(args.objective, args.repoContext, args.constraints);
+const fileDerivedContext = buildRepoContextFromPath(args.repoPath);
+const mergedRepoContext = [args.repoContext, fileDerivedContext].filter(Boolean).join('. ');
+const plan = buildPlan(args.objective, mergedRepoContext, args.constraints);
 
 if (args.format === 'json') {
   console.log(JSON.stringify(plan, null, 2));
