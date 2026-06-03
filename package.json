@@ -1,0 +1,14 @@
+{
+  "name": "codex-goal-parser",
+  "version": "0.1.0",
+  "description": "Generate Codex-friendly /goal plans from large software objectives.",
+  "type": "module",
+  "bin": {
+    "codex-goal-parser": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node ./src/index.js",
+    "example": "node ./src/index.js --objective \"Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy.\" --repo-context \"Node service with package.json, README, and deployment scripts.\" --format markdown"
+  },
+  "license": "MIT"
+}

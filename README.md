@@ -54,9 +54,23 @@ Outputs:
 - turn a repo cleanup effort into testable phases
 - derive goal mode commands from a README, issue, or repo structure
 
+## CLI MVP
+
+A small CLI is included for generating a first-pass plan.
+
+```bash
+node ./src/index.js \
+  --objective "Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy." \
+  --repo-context "Node service with package.json, README, and deployment scripts." \
+  --constraints "Do not rewrite unrelated modules. Keep validation explicit." \
+  --format markdown
+```
+
+You can also request JSON output with `--format json`.
+
 ## Next steps
 
-1. define the planning schema
-2. create prompt templates
-3. create example transformations
-4. decide whether the first implementation is prompt-only or code-assisted
+1. tighten the phase heuristics by objective type
+2. add repo file ingestion instead of only summary text
+3. create more example transformations
+4. decide whether to keep prompt-first or add typed planning logic
