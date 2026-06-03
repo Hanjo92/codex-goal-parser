@@ -4,7 +4,7 @@
   "description": "Turn large software objectives into repo-aware Codex /goal plans with verifiable sub-goals.",
   "type": "module",
   "bin": {
-    "codex-goal-parser": "./src/index.js"
+    "codex-goal-parser": "src/index.js"
   },
   "files": [
     "src",
