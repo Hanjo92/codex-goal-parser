@@ -89,6 +89,8 @@ The generated `/goal` commands use a compressed version of that context so they 
 
 - `docs/` — design notes and spec
 - `examples/` — sample inputs and outputs
+  - `sample-plan.md` — migration-style decomposition
+  - `release-plan.md` — release-readiness decomposition
 - `prompts/` — reusable prompts for Codex or Claude
 - `src/` — CLI implementation
 
