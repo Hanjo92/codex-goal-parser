@@ -1,17 +1,17 @@
 # codex-goal-parser
 
-A small project for turning a large coding objective into a sequence of Codex-friendly `/goal` tasks.
+A small repo-aware CLI for turning a large software objective into a sequence of compact, verifiable Codex `/goal` tasks.
 
 ## Why
 
 Codex goal mode works best when the target is clear, bounded, and verifiable.
 Big goals often fail because they are too vague, too broad, or missing a stopping condition.
 
-This project is meant to help with that.
+This project helps bridge that gap by converting one large objective into a short chain of smaller goals that are easier for Codex to execute reliably.
 
-## Core idea
+## What it generates
 
-Given a large objective and a repository context, generate:
+Given a large objective and some repository context, it generates:
 
 - a one-sentence final objective
 - 3-7 smaller sequential goals
@@ -19,46 +19,23 @@ Given a large objective and a repository context, generate:
 - validation steps for each goal
 - ready-to-run `/goal ...` commands
 
-## First version scope
+## Current scope
 
-The initial version should focus on planning, not execution.
+The current version focuses on planning, not execution.
 
-Inputs:
+**Inputs**
 - a large user objective
 - repository context
 - optional constraints
 
-Outputs:
+**Outputs**
 - a structured goal plan
 - compact `/goal` commands that Codex can execute one by one
 
-## Project structure
-
-- `docs/` — design notes and spec
-- `examples/` — sample inputs and outputs
-- `prompts/` — reusable prompts for Codex or Claude
-- `src/` — future parser/orchestrator code
-
-## Design principles
-
-- Prefer small verifiable goals over ambitious vague ones
-- Preserve dependency order
-- Keep each goal bounded to one checkpoint
-- Treat validation as mandatory
-- Avoid producing an oversized backlog
-
-## Early use cases
-
-- break a refactor into goal mode checkpoints
-- plan a migration as a chain of `/goal` runs
-- turn a repo cleanup effort into testable phases
-- derive goal mode commands from a README, issue, or repo structure
-
-## CLI MVP
-
-A small CLI is included for generating a first-pass plan.
+## Quick start
 
 ```bash
+npm install
 node ./src/index.js \
   --objective "Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy." \
   --repo-context "Node service with package.json, README, and deployment scripts." \
@@ -76,7 +53,19 @@ node ./src/index.js \
   --format markdown
 ```
 
-Currently the repo-path ingest checks common files and structure hints like:
+For JSON output:
+
+```bash
+node ./src/index.js \
+  --objective "Refactor this service safely." \
+  --repo-path . \
+  --format json
+```
+
+## Repo-aware context ingest
+
+When `--repo-path` is provided, the CLI currently looks at:
+
 - `README.md`
 - `package.json`
 - `pyproject.toml`
@@ -86,7 +75,36 @@ Currently the repo-path ingest checks common files and structure hints like:
 - common file extension counts
 - simple test/config hints
 
-You can also request JSON output with `--format json`.
+The generated `/goal` commands use a compressed version of that context so they stay readable instead of becoming bloated.
+
+## Example use cases
+
+- break a refactor into goal-mode checkpoints
+- plan a migration as a chain of `/goal` runs
+- turn a repo cleanup effort into testable phases
+- derive goal-mode commands from a README, issue, or repo structure
+- prepare a release plan with validation checkpoints
+
+## Project structure
+
+- `docs/` — design notes and spec
+- `examples/` — sample inputs and outputs
+- `prompts/` — reusable prompts for Codex or Claude
+- `src/` — CLI implementation
+
+## Design principles
+
+- Prefer small verifiable goals over ambitious vague ones
+- Preserve dependency order
+- Keep each goal bounded to one checkpoint
+- Treat validation as mandatory
+- Avoid producing an oversized backlog
+- Compress repo context instead of dumping raw structure into every command
+
+## Related projects
+
+- [`codex-goal-decomposer`](https://clawhub.ai) — ClawHub/OpenClaw skill for turning large goals into smaller goal-mode tasks
+- [`lazyGithub`](https://github.com/Hanjo92/lazyGithub) — helper project for publishing GitHub repos with README and About metadata filled properly
 
 ## Next steps
 
