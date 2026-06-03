@@ -295,9 +295,48 @@ function sentenceOrFallback(text, fallback) {
   return value ? `${value}.` : fallback;
 }
 
+function compactRepoContext(repoContext, maxChars = 320) {
+  if (!repoContext) return '';
+
+  const segments = repoContext
+    .split('. ')
+    .map((segment) => cleanSentence(segment))
+    .filter(Boolean);
+
+  const priorities = ['README summary', 'package ', 'scripts:', 'pyproject:', 'make targets:', 'test hints:', 'file types:', 'top-level files:', 'shallow tree:'];
+  const picked = [];
+
+  for (const priority of priorities) {
+    const match = segments.find((segment) => segment.startsWith(priority));
+    if (match && !picked.includes(match)) picked.push(match);
+  }
+
+  for (const segment of segments) {
+    if (picked.length >= 4) break;
+    if (!picked.includes(segment)) picked.push(segment);
+  }
+
+  const accepted = [];
+  let total = 0;
+
+  for (const segment of picked) {
+    const nextLength = total === 0 ? segment.length : total + 2 + segment.length;
+    if (nextLength > maxChars) break;
+    accepted.push(segment);
+    total = nextLength;
+  }
+
+  if (!accepted.length && picked.length) {
+    return `${picked[0].slice(0, Math.max(40, maxChars - 3)).replace(/[\s,;:.]+$/, '')}...`;
+  }
+
+  return accepted.join('. ');
+}
+
 function buildGoalCommand(goal, objective, repoContext, constraints) {
-  const contextPart = repoContext
-    ? ` Read the repo context first: ${sentenceOrFallback(repoContext, '')}`
+  const compactContext = compactRepoContext(repoContext);
+  const contextPart = compactContext
+    ? ` Read this repo context first: ${sentenceOrFallback(compactContext, '')}`
     : '';
   const constraintsPart = constraints
     ? ` Respect these constraints: ${sentenceOrFallback(constraints, '')}`
@@ -365,13 +404,17 @@ function buildPlan(objective, repoContext, constraints) {
     goal_command: buildGoalCommand(goal, cleanObjective, repoContext, constraints),
   }));
 
+  const compactContext = compactRepoContext(repoContext);
+
   return {
     final_objective: cleanObjective ? `${cleanObjective}.` : 'Define a clear final objective before running goal mode.',
+    repo_context_summary: compactContext,
     sub_goals: subGoals,
     execution_order: subGoals.map((goal, index) => `${index + 1}. ${goal.title}`),
     notes: [
       'Split any sub-goal again if its done condition still feels vague in practice.',
       'Prefer sequential execution; later goals assume the earlier checkpoint is complete.',
+      compactContext ? `Repo context summary: ${sentenceOrFallback(compactContext, '')}` : 'No repo context summary was available.',
       constraints ? `Applied constraints: ${sentenceOrFallback(constraints, '')}` : 'No extra constraints were provided.',
     ],
   };
