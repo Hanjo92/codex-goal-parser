@@ -792,6 +792,8 @@ function buildPlan(objective, repoContext, constraints, metadata = {}) {
   ];
 
   return {
+    contract_version: '1.0.0',
+    plan_format: 'codex-goal-plan',
     final_objective: cleanObjective ? `${cleanObjective}.` : 'Define a clear final objective before running goal mode.',
     repo_context_summary: compactContext,
     objective_type: kind,

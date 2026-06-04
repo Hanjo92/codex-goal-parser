@@ -1,0 +1,17 @@
+{
+  "name": "sample-fixture-repo",
+  "version": "0.0.1",
+  "description": "Fixture repo for codex-goal-parser tests",
+  "scripts": {
+    "build": "echo build",
+    "test": "echo test",
+    "lint": "echo lint"
+  },
+  "dependencies": {
+    "react": "18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "5.0.0",
+    "vitest": "1.0.0"
+  }
+}

@@ -63,6 +63,12 @@ Run the repo-aware release example:
 npm run example:release
 ```
 
+Run the automated tests:
+
+```bash
+npm test
+```
+
 Run the CLI directly with your own objective:
 
 ```bash
@@ -146,6 +152,8 @@ Prepare this project for a safe public release.
 
 The full generated output also includes done conditions, validation steps, and ready-to-run `/goal` commands for each step.
 
+For machine-readable integrations, use `--output json` and see [`docs/output-contract.md`](docs/output-contract.md).
+
 ## Repo-aware context ingest
 
 When `--repo-path` is provided — or when you run the CLI inside a repo without passing repo context explicitly — the CLI currently looks at:
@@ -181,6 +189,7 @@ The generated `/goal` commands use a compressed version of that context so they 
   - `release-plan.md` — release-readiness decomposition
 - `prompts/` — reusable prompts for Codex or Claude
 - `src/` — CLI implementation
+- `tests/` — fixture-based CLI tests
 
 ## Design principles
 
