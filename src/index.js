@@ -10,6 +10,7 @@ function parseArgs(argv) {
     repoContext: '',
     constraints: '',
     repoPath: '',
+    outputFile: '',
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -33,7 +34,11 @@ function parseArgs(argv) {
         break;
       case '--format':
       case '-f':
+      case '--output':
         args.format = argv[++i] ?? 'markdown';
+        break;
+      case '--output-file':
+        args.outputFile = argv[++i] ?? '';
         break;
       case '--help':
       case '-h':
@@ -60,6 +65,8 @@ Options:
   -c, --constraints    Constraints, boundaries, or validation notes
   -p, --repo-path      Repository path to inspect for common context files
   -f, --format         markdown (default) or json
+      --output         Alias for --format
+      --output-file    Write the generated plan to a file
   -h, --help           Show help
 `);
 }
@@ -180,6 +187,24 @@ function detectTestHints(rootPath) {
   }
 
   return hints.join(', ');
+}
+
+function looksLikeProjectRepo(repoPath) {
+  const resolved = path.resolve(repoPath);
+  if (!fs.existsSync(resolved)) return false;
+
+  const strongSignals = ['.git', 'package.json', 'pyproject.toml'];
+  if (strongSignals.some((name) => fs.existsSync(path.join(resolved, name)))) return true;
+
+  const softSignals = ['README.md', 'Makefile', 'src', 'app', 'lib', 'docs', 'examples'];
+  const score = softSignals.reduce((count, name) => count + Number(fs.existsSync(path.join(resolved, name))), 0);
+  return score >= 2;
+}
+
+function resolveRepoPath(args) {
+  if (args.repoPath) return args.repoPath;
+  if (args.repoContext) return '';
+  return looksLikeProjectRepo(process.cwd()) ? process.cwd() : '';
 }
 
 function buildRepoContextFromPath(repoPath) {
@@ -451,12 +476,23 @@ if (!args.objective) {
   process.exit(1);
 }
 
-const fileDerivedContext = buildRepoContextFromPath(args.repoPath);
+const format = (args.format || 'markdown').toLowerCase();
+if (!['markdown', 'json'].includes(format)) {
+  console.error(`Unsupported output format: ${args.format}`);
+  process.exit(1);
+}
+
+const resolvedRepoPath = resolveRepoPath(args);
+const fileDerivedContext = buildRepoContextFromPath(resolvedRepoPath);
 const mergedRepoContext = [args.repoContext, fileDerivedContext].filter(Boolean).join('. ');
 const plan = buildPlan(args.objective, mergedRepoContext, args.constraints);
+const rendered = format === 'json' ? JSON.stringify(plan, null, 2) : toMarkdown(plan);
 
-if (args.format === 'json') {
-  console.log(JSON.stringify(plan, null, 2));
+if (args.outputFile) {
+  const outputPath = path.resolve(args.outputFile);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, rendered, 'utf8');
+  console.log(`Wrote ${format} plan to ${outputPath}`);
 } else {
-  console.log(toMarkdown(plan));
+  console.log(rendered);
 }

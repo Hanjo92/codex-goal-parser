@@ -70,17 +70,26 @@ node ./src/index.js \
   --objective "Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy." \
   --repo-context "Node service with package.json, README, and deployment scripts." \
   --constraints "Do not rewrite unrelated modules. Keep validation explicit." \
-  --format markdown
+  --output markdown
 ```
 
-Or let it inspect a repo directly:
+If you're already inside a project repo, it can inspect the current directory automatically:
+
+```bash
+node ./src/index.js \
+  --objective "Prepare this project for a safe public release." \
+  --constraints "Do not change runtime behavior unless needed." \
+  --output markdown
+```
+
+You can still point at a specific repo explicitly:
 
 ```bash
 node ./src/index.js \
   --objective "Prepare this project for a safe public release." \
   --repo-path . \
   --constraints "Do not change runtime behavior unless needed." \
-  --format markdown
+  --output markdown
 ```
 
 For JSON output:
@@ -89,13 +98,22 @@ For JSON output:
 node ./src/index.js \
   --objective "Refactor this service safely." \
   --repo-path . \
-  --format json
+  --output json
+```
+
+To write the generated plan directly to disk:
+
+```bash
+node ./src/index.js \
+  --objective "Prepare this project for a safe public release." \
+  --output markdown \
+  --output-file ./plans/release-plan.md
 ```
 
 After `npm link`, you can use it like a normal command:
 
 ```bash
-codex-goal-parser --objective "Refactor this service safely." --repo-path . --format markdown
+codex-goal-parser --objective "Refactor this service safely." --output markdown
 ```
 
 ## Example output
@@ -117,7 +135,7 @@ The full generated output also includes done conditions, validation steps, and r
 
 ## Repo-aware context ingest
 
-When `--repo-path` is provided, the CLI currently looks at:
+When `--repo-path` is provided — or when you run the CLI inside a repo without passing repo context explicitly — the CLI currently looks at:
 
 - `README.md`
 - `package.json`

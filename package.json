@@ -37,8 +37,8 @@
   },
   "scripts": {
     "start": "node ./src/index.js",
-    "example": "node ./src/index.js --objective \"Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy.\" --repo-context \"Node service with package.json, README, and deployment scripts.\" --format markdown",
-    "example:release": "node ./src/index.js --objective \"Prepare this project for a safe public release.\" --repo-path . --constraints \"Do not change runtime behavior unless needed.\" --format markdown",
-    "smoke": "node ./src/index.js --objective \"Refactor this service safely.\" --repo-path . --format json"
+    "example": "node ./src/index.js --objective \"Migrate this old Node service to a cleaner TypeScript structure and make it safe to deploy.\" --repo-context \"Node service with package.json, README, and deployment scripts.\" --output markdown",
+    "example:release": "node ./src/index.js --objective \"Prepare this project for a safe public release.\" --constraints \"Do not change runtime behavior unless needed.\" --output markdown",
+    "smoke": "node ./src/index.js --objective \"Refactor this service safely.\" --repo-path . --output json"
   }
 }
