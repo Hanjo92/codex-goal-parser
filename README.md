@@ -23,6 +23,19 @@ Given a large objective and some repository context, it generates:
 
 The current version focuses on planning, not execution.
 
+## Status
+
+`codex-goal-parser` has now completed its first reliability roadmap and is ready for broader real-world use as a planning helper.
+
+Highlights in the current release line:
+
+- automatic repo detection when running inside a project
+- clearer output controls with `--output` and `--output-file`
+- richer repo-context ingestion for validation, structure, and framework hints
+- stronger goal-type heuristics with broad-objective narrowing
+- file-based planning inputs via `--issue-file` and `--context-file`
+- documented JSON output contract and fixture-based automated tests
+
 **Inputs**
 - a large user objective
 - repository context
@@ -205,9 +218,19 @@ The generated `/goal` commands use a compressed version of that context so they 
 - [`codex-goal-decomposer`](https://clawhub.ai) — ClawHub/OpenClaw skill for turning large goals into smaller goal-mode tasks
 - [`lazyGithub`](https://github.com/Hanjo92/lazyGithub) — helper project for publishing GitHub repos with README and About metadata filled properly
 
+## Roadmap status
+
+The first reliability roadmap is complete:
+
+- [x] CLI ergonomics and output handling
+- [x] Better repo-context ingestion
+- [x] Better heuristic quality and splitting behavior
+- [x] Richer input sources like issues/specs/docs
+- [x] Structured output contract and tests
+
 ## Next steps
 
-1. tighten the phase heuristics by objective type
-2. create more example transformations
-3. expand repo ingestion to more file types and smarter code/test signal extraction
-4. decide whether to keep prompt-first or add typed planning logic
+1. add more representative planning examples and fixtures
+2. expand repo ingestion to more languages and deployment layouts
+3. keep refining heuristics with real-world planning transcripts
+4. decide whether to add a more explicit typed planning core over time

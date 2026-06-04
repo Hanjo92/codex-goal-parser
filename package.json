@@ -1,6 +1,6 @@
 {
   "name": "codex-goal-parser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turn large software objectives into repo-aware Codex /goal plans with verifiable sub-goals.",
   "type": "module",
   "bin": {
