@@ -390,53 +390,259 @@ function cleanSentence(text) {
 
 function classifyObjective(objective) {
   const lower = objective.toLowerCase();
-
-  if (/(migrat|port|upgrade|move)/.test(lower)) return 'migration';
-  if (/(refactor|rewrite|restructur|clean up)/.test(lower)) return 'refactor';
-  if (/(deploy|release|publish|ship)/.test(lower)) return 'release';
-  if (/(fix|stabil|repair|debug)/.test(lower)) return 'stabilization';
-  if (/(document|readme|docs)/.test(lower)) return 'documentation';
-
-  return 'generic';
-}
-
-function buildPhaseTemplates(kind) {
-  const templates = {
+  const rules = {
     migration: [
-      ['Audit the current system', 'establish the current architecture, entry points, and migration risks before changing code'],
-      ['Define the target structure', 'set the destination layout, boundaries, and success criteria for the migration'],
-      ['Migrate the core path', 'move the most important runtime or product path first without losing expected behavior'],
-      ['Validate and harden the result', 'prove the migrated path works and document remaining risks or rollout notes'],
+      [/(migrat|port|upgrade|convert|move to|switch to)/, 3],
+      [/(typescript|python 3|new stack|new framework|new runtime|new architecture)/, 2],
     ],
     refactor: [
-      ['Audit the current implementation', 'understand the current boundaries, pain points, and risk areas before refactoring'],
-      ['Define the target refactor shape', 'decide the desired structure and keep the refactor bounded'],
-      ['Refactor the critical path', 'make the highest-value structural change while keeping behavior stable'],
-      ['Validate and finish the refactor', 'run checks and clean up the remaining rough edges relevant to the goal'],
+      [/(refactor|restructur|rewrite|clean up|simplif|modulari|untangle)/, 3],
+      [/(maintainab|readab|separat.*concern|tech debt|legacy structure)/, 2],
     ],
     release: [
-      ['Audit release readiness', 'identify the current build, deploy, and documentation state'],
-      ['Close release gaps', 'address the missing pieces that block a safe release'],
-      ['Verify the release path', 'prove the build, validation, and release flow work end to end'],
-      ['Document and finalize release readiness', 'leave the project in a clearly releasable state'],
+      [/(deploy|release|publish|ship|launch|distribut)/, 3],
+      [/(packag|version|changelog|docs for users|release note|ci|build pipeline)/, 2],
     ],
     stabilization: [
-      ['Reproduce and bound the problem', 'make sure the failure mode and scope are understood before changing code'],
-      ['Identify the likely fix path', 'pin down the area most likely to solve the issue with minimal collateral changes'],
-      ['Implement the fix on the critical path', 'apply the fix where it matters most and avoid unrelated edits'],
-      ['Validate stability and document remaining risk', 'confirm the issue is addressed and record anything still uncertain'],
+      [/(fix|stabil|repair|debug|regression|incident|broken|failure|bug)/, 3],
+      [/(crash|flaky|error|timeout|failing test|production issue)/, 2],
     ],
     documentation: [
-      ['Audit the current docs state', 'understand what already exists and what is missing or misleading'],
-      ['Define the target documentation shape', 'decide the sections and level of detail needed'],
-      ['Write the most important docs path', 'cover the setup, usage, or maintenance path the user needs most'],
-      ['Validate and polish the docs', 'make sure the docs match the repo and are safe to follow'],
+      [/(document|readme|docs|guide|tutorial|reference)/, 3],
+      [/(onboard|usage note|setup instruction)/, 2],
+    ],
+  };
+
+  const scores = Object.entries(rules).map(([kind, entries]) => ({
+    kind,
+    score: entries.reduce((sum, [regex, weight]) => sum + (regex.test(lower) ? weight : 0), 0),
+  }));
+
+  scores.sort((a, b) => b.score - a.score);
+  return scores[0]?.score > 0 ? scores[0].kind : 'generic';
+}
+
+function isBroadObjective(objective) {
+  const lower = objective.toLowerCase();
+  const broadSignals = [
+    /end[- ]to[- ]end/,
+    /from scratch/,
+    /entire|whole|full platform|complete system/,
+    /and .* and .* and /,
+    /(migrate|refactor|release|fix).*(and|while also).*(migrate|refactor|release|fix)/,
+    /(frontend|backend|api|database)/,
+  ];
+
+  const signalCount = broadSignals.reduce((count, regex) => count + Number(regex.test(lower)), 0);
+  const wordCount = lower.split(/\s+/).filter(Boolean).length;
+  return signalCount >= 2 || wordCount >= 22;
+}
+
+function buildPhaseTemplates(kind, broadObjective = false) {
+  const templates = {
+    migration: [
+      {
+        title: 'Audit the current system',
+        why: 'establish the current runtime, data flow, and migration risks before moving anything',
+        scope: 'identify the live entry points, migration seams, and compatibility constraints only',
+        doneWhen: 'the current architecture, risky dependencies, and first safe migration slice are named explicitly',
+        validate: 'reviewing entry points, configs, interfaces, and the highest-risk runtime paths',
+        commandLead: 'Audit the current system for this migration',
+      },
+      {
+        title: broadObjective ? 'Choose the first migration slice' : 'Define the target structure',
+        why: broadObjective ? 'shrink the migration to one executable slice before changing code' : 'set the destination layout, boundaries, and success criteria for the migration',
+        scope: broadObjective ? 'pick one service, layer, or user path as the first migration checkpoint' : 'define target modules, contracts, and coexistence rules for old vs new structure',
+        doneWhen: broadObjective ? 'one migration slice is chosen with clear boundaries and out-of-scope areas' : 'the target structure and cutover rules are concrete enough to execute without drift',
+        validate: broadObjective ? 'checking that the chosen slice can be completed without needing the whole migration at once' : 'checking that the target modules, interfaces, and rollback expectations are explicit',
+        commandLead: broadObjective ? 'Choose the first migration slice for this objective' : 'Define the target migration structure for this objective',
+      },
+      {
+        title: 'Migrate the first critical path',
+        why: 'move the most important or safest vertical slice first without losing expected behavior',
+        scope: 'touch only the selected runtime path and the minimum supporting files it requires',
+        doneWhen: 'the chosen migration slice works in the new structure and the old/new boundary is still understandable',
+        validate: 'running the most relevant build, test, or smoke path that exercises the migrated slice',
+        commandLead: 'Migrate the first critical path without breaking expected behavior',
+      },
+      {
+        title: 'Verify the migrated slice and capture next cuts',
+        why: 'prove the migrated path works and leave the next safe migration steps obvious',
+        scope: 'finish only verification, cleanup directly tied to the migrated slice, and next-step notes',
+        doneWhen: 'the migrated slice is verified and the next migration cuts are documented without reopening the whole plan',
+        validate: 'running the final verification path and checking for unresolved migration risks around the changed boundary',
+        commandLead: 'Verify the migrated slice and leave the next cuts clear',
+      },
+    ],
+    refactor: [
+      {
+        title: 'Audit the current implementation',
+        why: 'understand the tangled boundaries, duplication, and fragile areas before restructuring code',
+        scope: 'inspect only the modules, tests, and interfaces most relevant to the refactor target',
+        doneWhen: 'the main structural pain points and the safest first refactor boundary are explicit',
+        validate: 'reviewing the affected modules, calling paths, and guardrail tests before edits',
+        commandLead: 'Audit the current implementation for this refactor',
+      },
+      {
+        title: broadObjective ? 'Choose the first refactor boundary' : 'Define the target refactor shape',
+        why: broadObjective ? 'reduce a broad cleanup into one bounded structural checkpoint' : 'decide the target structure and keep the refactor bounded',
+        scope: broadObjective ? 'pick one component, layer, or dependency seam to refactor first' : 'define target responsibilities, interfaces, and what will remain unchanged',
+        doneWhen: broadObjective ? 'one refactor boundary is selected with explicit non-goals' : 'the target responsibilities and stop conditions are concrete enough to execute safely',
+        validate: broadObjective ? 'checking that the boundary can be changed without requiring a repo-wide rewrite' : 'checking that the target interfaces, responsibilities, and preserved behavior are explicit',
+        commandLead: broadObjective ? 'Choose the first refactor boundary for this objective' : 'Define the target refactor shape for this objective',
+      },
+      {
+        title: 'Refactor the critical path',
+        why: 'make the highest-value structural change while keeping observable behavior stable',
+        scope: 'change only the selected module boundary, support code, and tests needed for that checkpoint',
+        doneWhen: 'the targeted structure is in place and the critical path still behaves as expected',
+        validate: 'running the most relevant test, build, or smoke path for the changed modules',
+        commandLead: 'Refactor the critical path without breaking expected behavior',
+      },
+      {
+        title: 'Verify the refactor and trim leftovers',
+        why: 'prove the new structure works and remove only the rough edges created by this checkpoint',
+        scope: 'finish verification and limited cleanup directly tied to the chosen refactor boundary',
+        doneWhen: 'the checkpoint is verified, behavior is preserved, and leftover debt is clearly called out',
+        validate: 'running the final verification path and checking the new structure matches the stated refactor goal',
+        commandLead: 'Verify the refactor and leave the checkpoint clean',
+      },
+    ],
+    release: [
+      {
+        title: 'Audit release readiness',
+        why: 'identify the real blockers across build, packaging, docs, and delivery before trying to ship',
+        scope: 'inspect release-critical scripts, metadata, docs, and distribution assumptions only',
+        doneWhen: 'the exact release blockers and the first shippable checkpoint are clearly listed',
+        validate: 'reviewing the build path, package metadata, release docs, and distribution steps end to end',
+        commandLead: 'Audit release readiness for this repository',
+      },
+      {
+        title: broadObjective ? 'Pick the first shippable release checkpoint' : 'Close release blockers',
+        why: broadObjective ? 'reduce a broad launch goal into one releaseable checkpoint' : 'address the missing pieces that actually block a safe release',
+        scope: broadObjective ? 'choose one artifact, platform, or packaging path to make shippable first' : 'fix only the build, packaging, docs, or metadata gaps that block release',
+        doneWhen: broadObjective ? 'one release checkpoint is chosen with explicit ship criteria and deferred work' : 'the release blockers for this checkpoint are closed without widening scope',
+        validate: broadObjective ? 'checking that the checkpoint could ship independently if the rest were deferred' : 'checking that packaging, metadata, docs, and release prerequisites are explicit and complete',
+        commandLead: broadObjective ? 'Pick the first shippable release checkpoint for this objective' : 'Close release blockers for this objective',
+      },
+      {
+        title: 'Verify the release path',
+        why: 'prove the artifact can actually be built, validated, and prepared for users',
+        scope: 'run only the build, packaging, and smoke validation needed for the chosen release checkpoint',
+        doneWhen: 'the chosen release path succeeds end to end or the remaining blocker is isolated precisely',
+        validate: 'running the build, packaging, and smoke path that most closely matches the real release flow',
+        commandLead: 'Verify the release path and keep it production-minded',
+      },
+      {
+        title: 'Document final release readiness',
+        why: 'leave the release state obvious to the next human or agent instead of implied',
+        scope: 'finish only release-facing notes, versioning details, and directly related polish',
+        doneWhen: 'the release checkpoint is documented with any deferred work and known risks called out',
+        validate: 'checking that the documented release steps match the validated build and packaging flow',
+        commandLead: 'Document final release readiness and remaining risk',
+      },
+    ],
+    stabilization: [
+      {
+        title: 'Reproduce and bound the problem',
+        why: 'make sure the failure mode, impact, and trigger are understood before changing code',
+        scope: 'focus on the broken path, logs, tests, and conditions needed to make the issue concrete',
+        doneWhen: 'the failure mode, blast radius, and likely trigger are explicit instead of guessed',
+        validate: 'reproducing the problem from logs, tests, or a minimal failing path when possible',
+        commandLead: 'Reproduce and bound the problem for this issue',
+      },
+      {
+        title: broadObjective ? 'Choose the first fix boundary' : 'Identify the likely fix path',
+        why: broadObjective ? 'reduce a messy bugfix into one tractable failing path first' : 'pin down the area most likely to solve the issue with minimal collateral change',
+        scope: broadObjective ? 'pick one failing path, root-cause area, or regression boundary to fix first' : 'narrow to the smallest code path that can address the failure safely',
+        doneWhen: broadObjective ? 'one failing path is selected with explicit non-goals and suspected root cause' : 'the likely root cause and safest fix boundary are concrete enough to implement',
+        validate: broadObjective ? 'checking that the chosen fix boundary is smaller than the total incident surface' : 'checking that the suspected root cause fits the observed failure and affected scope',
+        commandLead: broadObjective ? 'Choose the first fix boundary for this objective' : 'Identify the likely fix path for this objective',
+      },
+      {
+        title: 'Implement the fix on the critical path',
+        why: 'apply the smallest meaningful fix where it matters most and avoid unrelated cleanup',
+        scope: 'change only the failing path, essential guardrails, and directly related tests',
+        doneWhen: 'the broken path is fixed and the regression surface has not widened',
+        validate: 'running the failing test, targeted smoke path, or the most direct regression check for the issue',
+        commandLead: 'Implement the fix on the critical path without unrelated edits',
+      },
+      {
+        title: 'Verify stability and capture residual risk',
+        why: 'confirm the issue is addressed and make any remaining uncertainty explicit',
+        scope: 'finish targeted verification and note only the risks that still matter after the fix',
+        doneWhen: 'the issue is verified closed for the tested path and remaining edge cases are documented',
+        validate: 'running the targeted regression checks and reviewing whether adjacent paths need follow-up',
+        commandLead: 'Verify stability and capture any residual risk',
+      },
+    ],
+    documentation: [
+      {
+        title: 'Audit the current docs state',
+        why: 'understand what already exists and what is missing or misleading',
+        scope: 'inspect the relevant docs, examples, and setup flow only',
+        doneWhen: 'the missing or misleading docs path is explicit',
+        validate: 'reviewing the existing docs against the real setup or usage path',
+        commandLead: 'Audit the current docs state for this repository',
+      },
+      {
+        title: 'Define the target documentation shape',
+        why: 'decide the sections and level of detail needed',
+        scope: 'set the docs outline, intended reader, and non-goals for this pass',
+        doneWhen: 'the target docs shape is concrete enough to write without drift',
+        validate: 'checking that the intended reader, sections, and usage path are explicit',
+        commandLead: 'Define the target documentation shape for this objective',
+      },
+      {
+        title: 'Write the most important docs path',
+        why: 'cover the setup, usage, or maintenance path the user needs most',
+        scope: 'write only the highest-value docs path and examples needed for it',
+        doneWhen: 'the primary docs path is complete enough for a real reader to follow',
+        validate: 'walking the documented path against the repo structure and commands',
+        commandLead: 'Write the most important docs path and keep it accurate',
+      },
+      {
+        title: 'Validate and polish the docs',
+        why: 'make sure the docs match the repo and are safe to follow',
+        scope: 'finish consistency fixes and polish directly tied to the documented path',
+        doneWhen: 'the documented path matches the repo and obvious reader confusion is removed',
+        validate: 'checking commands, file names, links, and examples against the actual repo',
+        commandLead: 'Validate and polish the docs before stopping',
+      },
     ],
     generic: [
-      ['Audit the current state', 'understand the current repository and the parts that matter for the objective'],
-      ['Define the target checkpoint', 'turn the vague objective into a bounded intermediate target'],
-      ['Implement the critical path', 'make the main change needed to move the objective forward'],
-      ['Validate and finalize the checkpoint', 'prove the result and leave a clear next state'],
+      {
+        title: 'Audit the current state',
+        why: 'understand the current repository and the parts that matter for the objective',
+        scope: 'inspect only the repo areas directly relevant to the objective',
+        doneWhen: 'the current state and first useful checkpoint are clearly summarized',
+        validate: 'reviewing the repo structure, scripts, configs, and any key docs',
+        commandLead: 'Audit the current state for this repository',
+      },
+      {
+        title: broadObjective ? 'Choose the first bounded checkpoint' : 'Define the target checkpoint',
+        why: broadObjective ? 'reduce a vague objective into one tractable checkpoint before implementation' : 'turn the vague objective into a bounded intermediate target',
+        scope: broadObjective ? 'pick one milestone, path, or artifact that can stand alone as the first checkpoint' : 'define what this checkpoint will change and what it will not touch',
+        doneWhen: broadObjective ? 'one checkpoint is chosen with explicit boundaries, dependencies, and non-goals' : 'the checkpoint is concrete enough to execute without major ambiguity',
+        validate: broadObjective ? 'checking that the checkpoint can finish without requiring the whole objective at once' : 'checking that the target structure, boundaries, and success criteria are explicit',
+        commandLead: broadObjective ? 'Choose the first bounded checkpoint for this objective' : 'Define the target checkpoint for this objective',
+      },
+      {
+        title: 'Implement the critical path',
+        why: 'make the main change needed to move the objective forward',
+        scope: 'change only the files and checks needed for the chosen checkpoint',
+        doneWhen: 'the main checkpoint change is implemented and its critical path works',
+        validate: 'running the most relevant build, test, or smoke path for the changed area',
+        commandLead: 'Implement the critical path without widening scope',
+      },
+      {
+        title: 'Validate and finalize the checkpoint',
+        why: 'prove the result and leave a clear next state',
+        scope: 'finish only final verification and polish directly tied to the checkpoint',
+        doneWhen: 'the checkpoint is verified complete and the next state is obvious',
+        validate: 'running the final verification path and checking that the result matches the stated objective',
+        commandLead: 'Validate and finalize the checkpoint before stopping',
+      },
     ],
   };
 
@@ -510,54 +716,10 @@ function buildGoalCommand(goal, objective, repoContext, constraints) {
 function buildPlan(objective, repoContext, constraints) {
   const cleanObjective = cleanSentence(objective);
   const kind = classifyObjective(cleanObjective);
-  const phases = buildPhaseTemplates(kind);
+  const broadObjective = isBroadObjective(cleanObjective);
+  const phases = buildPhaseTemplates(kind, broadObjective);
 
-  const subGoals = phases.map(([title, why], index) => {
-    const order = index + 1;
-    const scope = [
-      order === 1 ? 'inspect the existing repo state and relevant docs/config' : 'focus only on the files and checks needed for this checkpoint',
-      order < phases.length ? 'avoid unrelated polish outside this checkpoint' : 'capture only final polish directly tied to the goal',
-    ].join('; ');
-
-    const doneWhen = [
-      order === 1
-        ? 'the current state, risks, and next migration/refactor path are clearly summarized'
-        : order === 2
-          ? 'the target checkpoint is concrete enough to execute without major ambiguity'
-          : order === 3
-            ? 'the main change is implemented and the critical path works'
-            : 'the relevant checks pass and the checkpoint is clearly complete',
-    ][0];
-
-    const validate = [
-      order === 1
-        ? 'reviewing the repo structure, scripts, configs, and any key docs'
-        : order === 2
-          ? 'checking that the target structure, boundaries, and success criteria are explicit'
-          : order === 3
-            ? 'running the most relevant build, test, or smoke-check path for the changed area'
-            : 'running the final verification path and checking that the result matches the stated objective',
-    ][0];
-
-    const commandLead = [
-      order === 1
-        ? `${title} for this repository`
-        : order === 2
-          ? `${title} for this objective`
-          : order === 3
-            ? `${title} without breaking the expected behavior`
-            : `${title} and leave the project in a verified state`,
-    ][0];
-
-    return {
-      title,
-      why,
-      scope,
-      doneWhen,
-      validate,
-      commandLead,
-    };
-  }).map((goal) => ({
+  const subGoals = phases.map((goal) => ({
     title: goal.title,
     why: goal.why,
     scope: goal.scope,
@@ -567,18 +729,23 @@ function buildPlan(objective, repoContext, constraints) {
   }));
 
   const compactContext = compactRepoContext(repoContext);
+  const notes = [
+    'Prefer sequential execution; later goals assume the earlier checkpoint is complete.',
+    broadObjective
+      ? 'This objective looked broad, so the plan deliberately narrows to one first checkpoint before wider implementation.'
+      : 'If a sub-goal still feels too vague in practice, split it again before execution.',
+    compactContext ? `Repo context summary: ${sentenceOrFallback(compactContext, '')}` : 'No repo context summary was available.',
+    constraints ? `Applied constraints: ${sentenceOrFallback(constraints, '')}` : 'No extra constraints were provided.',
+  ];
 
   return {
     final_objective: cleanObjective ? `${cleanObjective}.` : 'Define a clear final objective before running goal mode.',
     repo_context_summary: compactContext,
+    objective_type: kind,
+    broad_objective: broadObjective,
     sub_goals: subGoals,
     execution_order: subGoals.map((goal, index) => `${index + 1}. ${goal.title}`),
-    notes: [
-      'Split any sub-goal again if its done condition still feels vague in practice.',
-      'Prefer sequential execution; later goals assume the earlier checkpoint is complete.',
-      compactContext ? `Repo context summary: ${sentenceOrFallback(compactContext, '')}` : 'No repo context summary was available.',
-      constraints ? `Applied constraints: ${sentenceOrFallback(constraints, '')}` : 'No extra constraints were provided.',
-    ],
+    notes,
   };
 }
 
