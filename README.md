@@ -142,9 +142,12 @@ When `--repo-path` is provided — or when you run the CLI inside a repo without
 - `pyproject.toml`
 - `Makefile`
 - top-level file names
+- highlighted source / test / docs / deploy directories
 - a shallow directory tree
 - common file extension counts
-- simple test/config hints
+- test/config hints
+- likely validation commands from scripts or Make targets
+- lightweight language/framework signals from repo structure
 
 The generated `/goal` commands use a compressed version of that context so they stay readable instead of becoming bloated.
 

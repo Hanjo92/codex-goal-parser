@@ -3,6 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+const IGNORED_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', 'coverage']);
+
 function parseArgs(argv) {
   const args = {
     format: 'markdown',
@@ -81,6 +83,24 @@ function readFileIfExists(filePath, maxLength = 1200) {
   }
 }
 
+function listVisibleEntries(rootPath) {
+  try {
+    return fs.readdirSync(rootPath, { withFileTypes: true })
+      .filter((entry) => !entry.name.startsWith('.') && !IGNORED_DIRS.has(entry.name));
+  } catch {
+    return [];
+  }
+}
+
+function unique(items) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function formatList(label, items, maxItems = 6) {
+  const picked = unique(items).slice(0, maxItems);
+  return picked.length ? `${label}: ${picked.join(', ')}` : '';
+}
+
 function summarizePackageJson(pkgRaw) {
   if (!pkgRaw) return '';
 
@@ -92,8 +112,20 @@ function summarizePackageJson(pkgRaw) {
     if (pkg.type) parts.push(`module type: ${pkg.type}`);
     const scripts = pkg.scripts ? Object.keys(pkg.scripts) : [];
     if (scripts.length) parts.push(`scripts: ${scripts.slice(0, 6).join(', ')}`);
+    const validationScripts = scripts.filter((name) => /^(test|lint|build|check|verify|typecheck|ci|smoke)/.test(name));
+    if (validationScripts.length) parts.push(`validation scripts: ${validationScripts.slice(0, 6).join(', ')}`);
     const deps = pkg.dependencies ? Object.keys(pkg.dependencies) : [];
     if (deps.length) parts.push(`dependencies: ${deps.slice(0, 6).join(', ')}`);
+    const devDeps = pkg.devDependencies ? Object.keys(pkg.devDependencies) : [];
+    const toolHints = [];
+    if (deps.includes('react') || devDeps.includes('react')) toolHints.push('react');
+    if (deps.includes('next') || devDeps.includes('next')) toolHints.push('nextjs');
+    if (deps.includes('express')) toolHints.push('express');
+    if (devDeps.includes('typescript') || deps.includes('typescript')) toolHints.push('typescript');
+    if (deps.includes('vite') || devDeps.includes('vite')) toolHints.push('vite');
+    if (devDeps.includes('vitest')) toolHints.push('vitest');
+    if (devDeps.includes('jest')) toolHints.push('jest');
+    if (toolHints.length) parts.push(`js stack: ${unique(toolHints).join(', ')}`);
     return parts.join('; ');
   } catch {
     return '';
@@ -103,7 +135,6 @@ function summarizePackageJson(pkgRaw) {
 function buildShallowTree(rootPath, maxDepth = 2, maxEntries = 24) {
   const lines = [];
   let count = 0;
-  const ignore = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', 'coverage']);
 
   function walk(currentPath, depth, prefix = '') {
     if (depth > maxDepth || count >= maxEntries) return;
@@ -111,7 +142,7 @@ function buildShallowTree(rootPath, maxDepth = 2, maxEntries = 24) {
     let entries = [];
     try {
       entries = fs.readdirSync(currentPath, { withFileTypes: true })
-        .filter((entry) => !entry.name.startsWith('.') && !ignore.has(entry.name))
+        .filter((entry) => !entry.name.startsWith('.') && !IGNORED_DIRS.has(entry.name))
         .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name));
     } catch {
       return;
@@ -134,7 +165,6 @@ function buildShallowTree(rootPath, maxDepth = 2, maxEntries = 24) {
 
 function summarizeFileExtensions(rootPath, maxFiles = 120) {
   const counts = new Map();
-  const ignore = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.turbo', 'coverage']);
   let seen = 0;
 
   function walk(currentPath, depth = 0) {
@@ -148,7 +178,7 @@ function summarizeFileExtensions(rootPath, maxFiles = 120) {
 
     for (const entry of entries) {
       if (seen >= maxFiles) break;
-      if (entry.name.startsWith('.') || ignore.has(entry.name)) continue;
+      if (entry.name.startsWith('.') || IGNORED_DIRS.has(entry.name)) continue;
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
         walk(fullPath, depth + 1);
@@ -176,10 +206,14 @@ function detectTestHints(rootPath) {
     'tests',
     '__tests__',
     'vitest.config.ts',
+    'vitest.config.js',
     'jest.config.js',
+    'jest.config.ts',
     'pytest.ini',
     'playwright.config.ts',
+    'playwright.config.js',
     'cypress.config.ts',
+    'cypress.config.js',
   ];
 
   for (const candidate of candidates) {
@@ -187,6 +221,88 @@ function detectTestHints(rootPath) {
   }
 
   return hints.join(', ');
+}
+
+function summarizeImportantDirectories(rootPath) {
+  const entries = listVisibleEntries(rootPath).filter((entry) => entry.isDirectory());
+  const buckets = {
+    source: ['src', 'app', 'lib', 'server', 'client', 'packages'],
+    tests: ['test', 'tests', '__tests__', 'e2e', 'spec'],
+    docs: ['docs', 'examples'],
+    deploy: ['scripts', 'deploy', 'docker'],
+  };
+
+  const parts = [];
+  for (const [label, names] of Object.entries(buckets)) {
+    const found = names.filter((name) => fs.existsSync(path.join(rootPath, name)));
+    if (found.length) parts.push(`${label} dirs: ${found.join(', ')}`);
+  }
+
+  const grouped = new Set(Object.values(buckets).flat());
+  const remaining = entries
+    .map((entry) => entry.name)
+    .filter((name) => !grouped.has(name))
+    .slice(0, 6);
+  if (remaining.length) parts.push(`other dirs: ${remaining.join(', ')}`);
+
+  return parts.join('. ');
+}
+
+function detectProjectSignals(rootPath) {
+  const files = [
+    'tsconfig.json', 'jsconfig.json', 'vite.config.ts', 'vite.config.js', 'next.config.js', 'next.config.mjs',
+    'docker-compose.yml', 'docker-compose.yaml', 'Dockerfile', 'requirements.txt', 'poetry.lock',
+    'tox.ini', 'pytest.ini', 'pyproject.toml', 'go.mod', 'Cargo.toml', 'Gemfile'
+  ];
+
+  const found = files.filter((name) => fs.existsSync(path.join(rootPath, name)));
+  if (fs.existsSync(path.join(rootPath, '.github', 'workflows'))) found.push('.github/workflows');
+  return formatList('project signals', found, 8);
+}
+
+function detectLanguageFrameworkHints(rootPath) {
+  const hints = [];
+  if (fs.existsSync(path.join(rootPath, 'package.json'))) hints.push('node');
+  if (fs.existsSync(path.join(rootPath, 'tsconfig.json'))) hints.push('typescript');
+  if (fs.existsSync(path.join(rootPath, 'pyproject.toml')) || fs.existsSync(path.join(rootPath, 'requirements.txt'))) hints.push('python');
+  if (fs.existsSync(path.join(rootPath, 'go.mod'))) hints.push('go');
+  if (fs.existsSync(path.join(rootPath, 'Cargo.toml'))) hints.push('rust');
+  if (fs.existsSync(path.join(rootPath, 'next.config.js')) || fs.existsSync(path.join(rootPath, 'next.config.mjs'))) hints.push('nextjs');
+  if (fs.existsSync(path.join(rootPath, 'vite.config.ts')) || fs.existsSync(path.join(rootPath, 'vite.config.js'))) hints.push('vite');
+  if (fs.existsSync(path.join(rootPath, 'Dockerfile')) || fs.existsSync(path.join(rootPath, 'docker-compose.yml')) || fs.existsSync(path.join(rootPath, 'docker-compose.yaml'))) hints.push('docker');
+  return formatList('language/framework hints', hints, 8);
+}
+
+function detectValidationSignals(rootPath) {
+  const parts = [];
+  const pkgRaw = readFileIfExists(path.join(rootPath, 'package.json'), 4000);
+  if (pkgRaw) {
+    try {
+      const pkg = JSON.parse(pkgRaw);
+      const scripts = Object.keys(pkg.scripts || {});
+      const validation = scripts.filter((name) => /^(test|lint|build|check|verify|typecheck|ci|smoke)/.test(name));
+      if (validation.length) parts.push(`validation commands: npm run ${validation.slice(0, 5).join(', npm run ')}`);
+    } catch {
+      // ignore parse failures
+    }
+  }
+
+  const makefile = readFileIfExists(path.join(rootPath, 'Makefile'));
+  if (makefile) {
+    const targets = makefile
+      .split('\n')
+      .filter((line) => /^(test|lint|build|check|verify|ci|smoke|release)[A-Za-z0-9_-]*:/.test(line))
+      .map((line) => line.split(':')[0]);
+    if (targets.length) parts.push(`make validation: ${targets.slice(0, 6).join(', ')}`);
+  }
+
+  const configHints = [
+    'vitest.config.ts', 'vitest.config.js', 'jest.config.js', 'jest.config.ts', 'pytest.ini',
+    'playwright.config.ts', 'playwright.config.js', 'cypress.config.ts', 'cypress.config.js'
+  ].filter((name) => fs.existsSync(path.join(rootPath, name)));
+  if (configHints.length) parts.push(`validation config: ${configHints.slice(0, 6).join(', ')}`);
+
+  return parts.join('. ');
 }
 
 function looksLikeProjectRepo(repoPath) {
@@ -244,6 +360,9 @@ function buildRepoContextFromPath(repoPath) {
   const files = fs.readdirSync(resolved).filter((entry) => !entry.startsWith('.')).slice(0, 20);
   if (files.length) summaries.push(`top-level files: ${files.join(', ')}`);
 
+  const importantDirs = summarizeImportantDirectories(resolved);
+  if (importantDirs) summaries.push(importantDirs);
+
   const tree = buildShallowTree(resolved);
   if (tree.length) summaries.push(`shallow tree: ${tree.join(', ')}`);
 
@@ -252,6 +371,15 @@ function buildRepoContextFromPath(repoPath) {
 
   const testHints = detectTestHints(resolved);
   if (testHints) summaries.push(`test hints: ${testHints}`);
+
+  const validationSignals = detectValidationSignals(resolved);
+  if (validationSignals) summaries.push(validationSignals);
+
+  const projectSignals = detectProjectSignals(resolved);
+  if (projectSignals) summaries.push(projectSignals);
+
+  const languageHints = detectLanguageFrameworkHints(resolved);
+  if (languageHints) summaries.push(languageHints);
 
   return summaries.join('. ');
 }
@@ -326,9 +454,18 @@ function compactRepoContext(repoContext, maxChars = 320) {
   const segments = repoContext
     .split('. ')
     .map((segment) => cleanSentence(segment))
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((segment) => {
+      if (segment.startsWith('README summary:') && segment.length > 120) {
+        return `${segment.slice(0, 117).replace(/[\s,;:.]+$/, '')}...`;
+      }
+      if (segment.length > 90) {
+        return `${segment.slice(0, 87).replace(/[\s,;:.]+$/, '')}...`;
+      }
+      return segment;
+    });
 
-  const priorities = ['README summary', 'package ', 'scripts:', 'pyproject:', 'make targets:', 'test hints:', 'file types:', 'top-level files:', 'shallow tree:'];
+  const priorities = ['README summary', 'package ', 'validation scripts:', 'validation commands:', 'make validation:', 'js stack:', 'language/framework hints:', 'project signals:', 'source dirs:', 'tests dirs:', 'test hints:', 'pyproject:', 'make targets:', 'file types:', 'top-level files:', 'shallow tree:'];
   const picked = [];
 
   for (const priority of priorities) {
@@ -337,7 +474,7 @@ function compactRepoContext(repoContext, maxChars = 320) {
   }
 
   for (const segment of segments) {
-    if (picked.length >= 4) break;
+    if (picked.length >= 6) break;
     if (!picked.includes(segment)) picked.push(segment);
   }
 
@@ -346,7 +483,7 @@ function compactRepoContext(repoContext, maxChars = 320) {
 
   for (const segment of picked) {
     const nextLength = total === 0 ? segment.length : total + 2 + segment.length;
-    if (nextLength > maxChars) break;
+    if (nextLength > maxChars) continue;
     accepted.push(segment);
     total = nextLength;
   }
