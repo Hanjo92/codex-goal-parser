@@ -110,6 +110,19 @@ node ./src/index.js \
   --output-file ./plans/release-plan.md
 ```
 
+You can also drive planning from an issue/spec workflow:
+
+```bash
+node ./src/index.js \
+  --issue-file ./docs/issue-notes.md \
+  --context-file ./docs/architecture.md \
+  --context-file ./docs/release-spec.md \
+  --repo-path . \
+  --output markdown
+```
+
+If `--objective` is omitted, the CLI will try to derive it from the first issue/context document.
+
 After `npm link`, you can use it like a normal command:
 
 ```bash
@@ -148,6 +161,7 @@ When `--repo-path` is provided — or when you run the CLI inside a repo without
 - test/config hints
 - likely validation commands from scripts or Make targets
 - lightweight language/framework signals from repo structure
+- external issue/spec/architecture notes passed with `--issue-file` / `--context-file`
 
 The generated `/goal` commands use a compressed version of that context so they stay readable instead of becoming bloated.
 

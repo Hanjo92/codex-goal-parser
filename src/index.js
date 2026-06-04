@@ -13,6 +13,8 @@ function parseArgs(argv) {
     constraints: '',
     repoPath: '',
     outputFile: '',
+    issueFiles: [],
+    contextFiles: [],
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -42,6 +44,12 @@ function parseArgs(argv) {
       case '--output-file':
         args.outputFile = argv[++i] ?? '';
         break;
+      case '--issue-file':
+        args.issueFiles.push(argv[++i] ?? '');
+        break;
+      case '--context-file':
+        args.contextFiles.push(argv[++i] ?? '');
+        break;
       case '--help':
       case '-h':
         printHelp();
@@ -66,6 +74,8 @@ Options:
   -r, --repo-context   Short repo summary or context
   -c, --constraints    Constraints, boundaries, or validation notes
   -p, --repo-path      Repository path to inspect for common context files
+      --issue-file     Local issue text file to ingest (repeatable)
+      --context-file   Supporting spec/architecture/planning doc (repeatable)
   -f, --format         markdown (default) or json
       --output         Alias for --format
       --output-file    Write the generated plan to a file
@@ -388,6 +398,49 @@ function cleanSentence(text) {
   return text.trim().replace(/\s+/g, ' ').replace(/[.\s]+$/, '');
 }
 
+function summarizeExternalText(label, text, maxChars = 500) {
+  const cleaned = cleanSentence(text || '');
+  if (!cleaned) return '';
+  const shortened = cleaned.length > maxChars ? `${cleaned.slice(0, maxChars - 3).replace(/[\s,;:.]+$/, '')}...` : cleaned;
+  return `${label}: ${shortened}`;
+}
+
+function deriveObjectiveFromText(text) {
+  const lines = (text || '').split('\n').map((line) => line.trim()).filter(Boolean);
+  const candidate = lines.find((line) => !/^(#|summary|problem|context|acceptance criteria|notes?)\b[: -]*/i.test(line)) || lines[0] || '';
+  return cleanSentence(candidate.replace(/^[-*]\s*/, '').replace(/^#+\s*/, ''));
+}
+
+function loadPlanningDocuments(paths, labelPrefix) {
+  return paths
+    .filter(Boolean)
+    .map((filePath) => {
+      const resolved = path.resolve(filePath);
+      const raw = readFileIfExists(resolved, 4000);
+      if (!raw) return null;
+      return {
+        path: resolved,
+        label: `${labelPrefix} ${path.basename(resolved)}`,
+        raw,
+        summary: summarizeExternalText(`${labelPrefix} ${path.basename(resolved)}`, raw),
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildExternalPlanningContext(args) {
+  const issueDocs = loadPlanningDocuments(args.issueFiles, 'issue');
+  const contextDocs = loadPlanningDocuments(args.contextFiles, 'context');
+  const allDocs = [...issueDocs, ...contextDocs];
+  const objective = args.objective || deriveObjectiveFromText(issueDocs[0]?.raw || contextDocs[0]?.raw || '');
+
+  return {
+    objective,
+    summaries: allDocs.map((doc) => doc.summary).filter(Boolean),
+    sources: allDocs.map((doc) => doc.path),
+  };
+}
+
 function classifyObjective(objective) {
   const lower = objective.toLowerCase();
   const rules = {
@@ -671,7 +724,7 @@ function compactRepoContext(repoContext, maxChars = 320) {
       return segment;
     });
 
-  const priorities = ['README summary', 'package ', 'validation scripts:', 'validation commands:', 'make validation:', 'js stack:', 'language/framework hints:', 'project signals:', 'source dirs:', 'tests dirs:', 'test hints:', 'pyproject:', 'make targets:', 'file types:', 'top-level files:', 'shallow tree:'];
+  const priorities = ['issue ', 'context ', 'README summary', 'package ', 'validation scripts:', 'validation commands:', 'make validation:', 'js stack:', 'language/framework hints:', 'project signals:', 'source dirs:', 'tests dirs:', 'test hints:', 'pyproject:', 'make targets:', 'file types:', 'top-level files:', 'shallow tree:'];
   const picked = [];
 
   for (const priority of priorities) {
@@ -713,7 +766,7 @@ function buildGoalCommand(goal, objective, repoContext, constraints) {
   return `/goal ${goal.commandLead}. Work toward this larger objective: ${sentenceOrFallback(objective, 'Complete the requested project goal.')}${contextPart}${constraintsPart} Validate by ${goal.validate}. Stop when ${goal.doneWhen}.`;
 }
 
-function buildPlan(objective, repoContext, constraints) {
+function buildPlan(objective, repoContext, constraints, metadata = {}) {
   const cleanObjective = cleanSentence(objective);
   const kind = classifyObjective(cleanObjective);
   const broadObjective = isBroadObjective(cleanObjective);
@@ -743,9 +796,13 @@ function buildPlan(objective, repoContext, constraints) {
     repo_context_summary: compactContext,
     objective_type: kind,
     broad_objective: broadObjective,
+    input_sources: metadata.inputSources ?? [],
     sub_goals: subGoals,
     execution_order: subGoals.map((goal, index) => `${index + 1}. ${goal.title}`),
-    notes,
+    notes: [
+      ...notes,
+      metadata.inputSources?.length ? `Planning sources: ${metadata.inputSources.join(', ')}.` : 'Planning sources: objective text and repo context only.',
+    ],
   };
 }
 
@@ -774,8 +831,10 @@ function toMarkdown(plan) {
 }
 
 const args = parseArgs(process.argv.slice(2));
+const externalPlanning = buildExternalPlanningContext(args);
+const objective = args.objective || externalPlanning.objective;
 
-if (!args.objective) {
+if (!objective) {
   printHelp();
   process.exit(1);
 }
@@ -788,8 +847,13 @@ if (!['markdown', 'json'].includes(format)) {
 
 const resolvedRepoPath = resolveRepoPath(args);
 const fileDerivedContext = buildRepoContextFromPath(resolvedRepoPath);
-const mergedRepoContext = [args.repoContext, fileDerivedContext].filter(Boolean).join('. ');
-const plan = buildPlan(args.objective, mergedRepoContext, args.constraints);
+const mergedRepoContext = [args.repoContext, ...externalPlanning.summaries, fileDerivedContext].filter(Boolean).join('. ');
+const plan = buildPlan(objective, mergedRepoContext, args.constraints, {
+  inputSources: [
+    ...args.issueFiles.map((filePath) => path.resolve(filePath)),
+    ...args.contextFiles.map((filePath) => path.resolve(filePath)),
+  ],
+});
 const rendered = format === 'json' ? JSON.stringify(plan, null, 2) : toMarkdown(plan);
 
 if (args.outputFile) {
