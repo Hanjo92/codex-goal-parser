@@ -17,38 +17,55 @@ function parseArgs(argv) {
     contextFiles: [],
   };
 
+  function readRequiredValue(index, optionName) {
+    const value = argv[index + 1];
+    if (!value || value.startsWith('-')) {
+      console.error(`Missing value for ${optionName}`);
+      process.exit(1);
+    }
+    return value;
+  }
+
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     switch (arg) {
       case '--objective':
       case '-o':
-        args.objective = argv[++i] ?? '';
+        args.objective = readRequiredValue(i, arg);
+        i += 1;
         break;
       case '--repo-context':
       case '-r':
-        args.repoContext = argv[++i] ?? '';
+        args.repoContext = readRequiredValue(i, arg);
+        i += 1;
         break;
       case '--constraints':
       case '-c':
-        args.constraints = argv[++i] ?? '';
+        args.constraints = readRequiredValue(i, arg);
+        i += 1;
         break;
       case '--repo-path':
       case '-p':
-        args.repoPath = argv[++i] ?? '';
+        args.repoPath = readRequiredValue(i, arg);
+        i += 1;
         break;
       case '--format':
       case '-f':
       case '--output':
-        args.format = argv[++i] ?? 'markdown';
+        args.format = readRequiredValue(i, arg);
+        i += 1;
         break;
       case '--output-file':
-        args.outputFile = argv[++i] ?? '';
+        args.outputFile = readRequiredValue(i, arg);
+        i += 1;
         break;
       case '--issue-file':
-        args.issueFiles.push(argv[++i] ?? '');
+        args.issueFiles.push(readRequiredValue(i, arg));
+        i += 1;
         break;
       case '--context-file':
-        args.contextFiles.push(argv[++i] ?? '');
+        args.contextFiles.push(readRequiredValue(i, arg));
+        i += 1;
         break;
       case '--help':
       case '-h':
@@ -331,6 +348,23 @@ function resolveRepoPath(args) {
   if (args.repoPath) return args.repoPath;
   if (args.repoContext) return '';
   return looksLikeProjectRepo(process.cwd()) ? process.cwd() : '';
+}
+
+function validateRepoPath(repoPath) {
+  if (!repoPath) return '';
+
+  const resolved = path.resolve(repoPath);
+  if (!fs.existsSync(resolved)) {
+    console.error(`Repository path does not exist: ${resolved}`);
+    process.exit(1);
+  }
+
+  if (!fs.statSync(resolved).isDirectory()) {
+    console.error(`Repository path must be a directory: ${resolved}`);
+    process.exit(1);
+  }
+
+  return resolved;
 }
 
 function buildRepoContextFromPath(repoPath) {
@@ -847,7 +881,7 @@ if (!['markdown', 'json'].includes(format)) {
   process.exit(1);
 }
 
-const resolvedRepoPath = resolveRepoPath(args);
+const resolvedRepoPath = validateRepoPath(resolveRepoPath(args));
 const fileDerivedContext = buildRepoContextFromPath(resolvedRepoPath);
 const mergedRepoContext = [args.repoContext, ...externalPlanning.summaries, fileDerivedContext].filter(Boolean).join('. ');
 const plan = buildPlan(objective, mergedRepoContext, args.constraints, {
