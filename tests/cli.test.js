@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,6 +18,13 @@ function runCli(args, options = {}) {
 
 function runJson(args, options = {}) {
   return JSON.parse(runCli([...args, '--output', 'json'], options));
+}
+
+function runCliResult(args, options = {}) {
+  return spawnSync('node', [cliPath, ...args], {
+    cwd: options.cwd || repoRoot,
+    encoding: 'utf8',
+  });
 }
 
 test('json output follows the documented contract', () => {
@@ -69,4 +76,20 @@ test('markdown output keeps the expected human-readable sections', () => {
   assert.match(output, /## Final objective/);
   assert.match(output, /## Recommended sub-goals/);
   assert.match(output, /Command: `\/goal/);
+});
+
+test('options that require values reject a following flag as missing input', () => {
+  const result = runCliResult(['--objective', '--output', 'json']);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Missing value for --objective/);
+  assert.equal(result.stdout, '');
+});
+
+test('repo path must be a directory', () => {
+  const result = runCliResult(['--objective', 'Check invalid repo path', '--repo-path', 'package.json', '--output', 'json']);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Repository path must be a directory/);
+  assert.doesNotMatch(result.stderr, /ENOTDIR/);
 });

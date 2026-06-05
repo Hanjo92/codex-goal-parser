@@ -2,17 +2,44 @@
 
 ## Goal
 
-Convert a high-level software objective into a chain of smaller Codex `/goal` tasks.
+Convert a high-level software objective into a short chain of smaller Codex `/goal` tasks that are clear, ordered, and verifiable.
 
 ## Inputs
 
-- `objective`: the big thing the user wants
-- `repo_context`: repository files, docs, metadata, or summaries
-- `constraints` (optional): things not to change, time limits, required validation, etc.
+- `--objective`: the large objective to decompose
+- `--repo-context`: optional human-written repository context
+- `--constraints`: optional boundaries, non-goals, or validation requirements
+- `--repo-path`: optional repository path to inspect for context
+- `--issue-file`: repeatable issue or task note file
+- `--context-file`: repeatable supporting spec, architecture, or planning file
+- `--output` / `--format`: `markdown` or `json`
+- `--output-file`: optional file path for the generated plan
+
+If `--objective` is omitted, the CLI tries to derive one from the first issue or context file.
+
+## Repository Context
+
+When a repository path is available, the CLI summarizes lightweight project signals:
+
+- `README.md`
+- `package.json`
+- `pyproject.toml`
+- `Makefile`
+- top-level files
+- source, test, docs, and deployment directories
+- shallow directory tree
+- common file extensions
+- validation commands and test/config hints
+- language and framework signals
+- issue and context files supplied by the user
+
+The generated `/goal` commands use a compressed context summary so the command remains readable.
 
 ## Outputs
 
-A plan with:
+Markdown output is intended for humans. JSON output is intended for tools and follows the contract in `docs/output-contract.md`.
+
+Each generated plan includes:
 
 1. `final_objective`
 2. `sub_goals[]`
@@ -25,53 +52,39 @@ A plan with:
 3. `execution_order[]`
 4. `notes[]`
 
-## Rules
+## Planning Rules
 
-- Produce 3-7 sub-goals by default
-- Split again if a sub-goal has no clear done condition
-- Prefer goals that fit one focused session
-- Every sub-goal must have a validation method
-- The generated `/goal` command must include a stop condition
-- If the input is too vague, ask for one missing decision
-- If the task is too small, recommend not using goal mode
+- Produce 3-7 sub-goals by default.
+- Preserve dependency order.
+- Prefer one focused checkpoint per sub-goal.
+- Include a done condition for every sub-goal.
+- Include a validation method for every sub-goal.
+- Include a stop condition in every generated `/goal` command.
+- Narrow broad objectives to a first bounded slice before implementation.
+- Keep unrelated follow-up work out of the current checkpoint.
 
-## Repository context sources
+## Objective Types
 
-Possible future inputs:
+The current implementation uses lightweight heuristics to choose one of these plan families:
 
-- `README.md`
-- `package.json`
-- `pyproject.toml`
-- issue text
-- architecture notes
-- test commands
-- file tree summaries
+- `migration`
+- `refactor`
+- `release`
+- `stabilization`
+- `documentation`
+- `generic`
 
-## First implementation options
+The type affects the sub-goal templates and validation language. It does not execute code or call an LLM.
 
-### Option A — Prompt-first
+## Error Handling
 
-Just generate high-quality decomposition prompts and examples.
+The CLI should fail with a concise user-facing error when:
 
-Pros:
-- fast to ship
-- useful immediately
+- an option that requires a value is missing that value
+- `--output` / `--format` is not `markdown` or `json`
+- an explicit `--repo-path` does not exist
+- an explicit `--repo-path` is not a directory
 
-Cons:
-- less deterministic
-- weaker structured output guarantees
+## Current Scope
 
-### Option B — Structured parser
-
-Build a small tool that accepts objective + repo summary and emits a typed plan.
-
-Pros:
-- easier to integrate later
-- more consistent outputs
-
-Cons:
-- more design work upfront
-
-## Current direction
-
-Start with prompt-first artifacts and examples, then layer structured parsing if needed.
+`codex-goal-parser` is a deterministic planning helper. It does not execute the generated goals, modify repositories, or call remote services.
