@@ -62,6 +62,18 @@ npm install
 npm link
 ```
 
+## Install as a Codex skill
+
+Install the bundled Codex skill from this repository:
+
+```bash
+python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
+  --repo Hanjo92/codex-goal-parser \
+  --path skills/codex-goal-parser
+```
+
+Restart Codex after installing so it can discover the new skill.
+
 ## Quick start
 
 Run the basic example:
@@ -201,6 +213,7 @@ The generated `/goal` commands use a compressed version of that context so they 
   - `sample-plan.md` — migration-style decomposition
   - `release-plan.md` — release-readiness decomposition
 - `prompts/` — reusable prompts for Codex or Claude
+- `skills/` — installable Codex skill package
 - `src/` — CLI implementation
 - `tests/` — fixture-based CLI tests
 
